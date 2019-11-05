@@ -1,4 +1,4 @@
-﻿using CK.Core;
+using CK.Core;
 using CK.SqlServer.Parser;
 using System;
 namespace TQLDemo
@@ -46,7 +46,8 @@ namespace TQLDemo
                     || _parsedSql?.Result == null
                     || _parsedTql?.Result == null;
                 if (error)  return "Please fill the inputs or correct the errors.";
-                return _parsedTql.Result.SafeTransform(m, _parsedSql.Result).ToFullString();
+                
+                return (_parsedTql.Result.SafeTransform(m, _parsedSql.Result)?.ToFullString() ) ??"Error while applying TQL on SQL.";
             }
 		}
 	}
