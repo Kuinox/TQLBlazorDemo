@@ -1,4 +1,4 @@
-﻿<div class="demo">
+<div class="demo">
     SQL:
     <CodeInput @bind-Content="@editModel.Sql" ErrorMessage="@editModel.SqlError" ContentIsInvalid="@editModel.SqlResultIsError" />
     <br />
@@ -6,12 +6,26 @@
     <CodeInput @bind-Content="@editModel.Tql" ErrorMessage="@editModel.TqlError" ContentIsInvalid="@editModel.TqlResultIsError" />
     <br />
 </div>
-<ResultDisplay Result="@editModel.Transformed" EverythingIsFine="@(!editModel.SqlResultIsError && !editModel.TqlResultIsError)" />
+<div class="demo">
+  <ResultDisplay Result="@editModel.Transformed" EverythingIsFine="@(!editModel.SqlResultIsError && !editModel.TqlResultIsError)" />
+
+  <div>
+    <ResultDisplay Result="@editModel.Logs" EverythingIsFine="true" />
+    <button @onclick="@Click">Reset</button>
+  </div>
+  
+</div>
+
 
 @code {
+    public void Click()
+    {
+      editModel.Logs = "";
+      Console.WriteLine("click");
+    }
     public EditModel editModel = new EditModel()
     {
-        Tql = @"-- SetupConfig: {}
+      Tql = @"-- SetupConfig: {}
 create transformer on CK.sAclCreate
 as
 begin
@@ -21,7 +35,7 @@ begin
 add column AclTypeId = @AclTypeId;
 end
 end",
-        Sql = @"-- SetupConfig: {}
+      Sql = @"-- SetupConfig: {}
 alter Procedure CK.sAclCreate
 (
 @ActorId int,
