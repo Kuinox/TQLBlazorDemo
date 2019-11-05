@@ -1,0 +1,13 @@
+﻿<div class="result">
+    @foreach (string line in Result.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+    {
+        @line<br />
+    }
+</div>
+@code {
+	[Parameter]
+	public string Result { get; set; }
+
+	[Parameter]
+	public bool EverythingIsFine { get; set; }
+}
