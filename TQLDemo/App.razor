@@ -1,4 +1,5 @@
 <div class="demo">
+  <MonacoEditor Model="new EditorModel(new EditorOptions())"></MonacoEditor>
     SQL:
     <CodeInput @bind-Content="@editModel.Sql" ErrorMessage="@editModel.SqlError" ContentIsInvalid="@editModel.SqlResultIsError" />
     <br />
@@ -20,12 +21,12 @@
 @code {
     public void Click()
     {
-      editModel.Logs = "";
-      Console.WriteLine("click");
+        editModel.Logs = "";
+        Console.WriteLine("click");
     }
-    public EditModel editModel = new EditModel()
+    public TqlDemoModel editModel = new TqlDemoModel()
     {
-      Tql = @"-- SetupConfig: {}
+        Tql = @"-- SetupConfig: {}
 create transformer on CK.sAclCreate
 as
 begin
@@ -35,7 +36,7 @@ begin
 add column AclTypeId = @AclTypeId;
 end
 end",
-      Sql = @"-- SetupConfig: {}
+        Sql = @"-- SetupConfig: {}
 alter Procedure CK.sAclCreate
 (
 @ActorId int,

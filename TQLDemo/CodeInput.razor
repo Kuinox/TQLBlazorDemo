@@ -1,29 +1,32 @@
-﻿<textarea @oninput="OnContentChanged" class="code-input">
+<MonacoEditor Model="monaco"></MonacoEditor>
+<textarea @oninput="OnContentChanged" class="code-input">
 @Content
 </textarea>
 @if (@ContentIsInvalid)
 {
-	<div class="code-input-error">
-		@ErrorMessage
-	</div>
+    <div class="code-input-error">
+        @ErrorMessage
+    </div>
 }
 
 @code {
-	[Parameter]
-	public string Content { get; set; }
+    EditorModel monaco = new EditorModel();
 
-	[Parameter]
-	public EventCallback<string> ContentChanged { get; set; }
+    [Parameter]
+    public string Content { get; set; }
 
-	[Parameter]
-	public bool ContentIsInvalid { get; set; }
+    [Parameter]
+    public EventCallback<string> ContentChanged { get; set; }
 
-	[Parameter]
-	public string ErrorMessage { get; set; }
+    [Parameter]
+    public bool ContentIsInvalid { get; set; }
 
-	Task OnContentChanged(ChangeEventArgs e)
-	{
-		Content = e.Value.ToString();
-		return ContentChanged.InvokeAsync(Content);
-	}
+    [Parameter]
+    public string ErrorMessage { get; set; }
+
+    Task OnContentChanged(ChangeEventArgs e)
+    {
+        Content = e.Value.ToString();
+        return ContentChanged.InvokeAsync(Content);
+    }
 }

@@ -4,13 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <title>TQLDemo</title>
-    <base href="/TQLBlazorDemo/" />
-    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <base href="/" />
     <link href="css/site.css" rel="stylesheet" />
 </head>
 <body>
-    <app>Loading...</app>
-
-    <script src="_framework/blazor.webassembly.js"></script>
+  <app>Loading...</app>
+  <script>var require = { paths: { 'vs': 'monaco-editor/min/vs' } };</script>
+  <script src="monaco-editor/min/vs/loader.js"></script>
+  <script src="monaco-editor/min/vs/editor/editor.main.js"></script>
+  <script src="js/BlazacoJSInterop.js"></script>
+  <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>
