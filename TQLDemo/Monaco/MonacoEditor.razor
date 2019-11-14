@@ -3,10 +3,9 @@
 @using Monaco
 
 @namespace Monaco
-{
-<div id="@Model.Id"></div>
+<div id="@Model.Id" style="width:200px; height:200px">tototata</div>
 
-@functions {
+@code {
 
     [Inject]
     IJSRuntime runtime { get; set; }
@@ -39,6 +38,4 @@
     }
 }
 
-
-}
 
