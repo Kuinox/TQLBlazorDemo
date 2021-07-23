@@ -1,0 +1,136 @@
+@inject IJSRuntime JS
+<div class="editors-grid">
+    <MonacoEditor Id="sql-input" @ref="_sqlEditor" ConstructionOptions="SqlEditorConstructionOptions" OnDidChangeModelContent="SqlChange" OnDidInit="OnInit" />
+    <MonacoEditor Id="tql-input" @ref="_tqlEditor" ConstructionOptions="TqlEditorConstructionOptions" OnDidChangeModelContent="TqlChange" OnDidInit="OnInit" />
+    <MonacoEditor Id="sql-output" @ref="_outputEditor" ConstructionOptions="OutputEditorConstructionOptions" OnDidInit="OnInit" />
+</div>
+<MonacoEditor Id="log-output" @ref="_logOutput" ConstructionOptions="LogOutputEditorConstructionOptions" OnDidInit="OnInit" />
+
+@code {
+    IActivityMonitor _m;
+    MonacoEditor _sqlEditor { get; set; }
+    MonacoEditor _tqlEditor { get; set; }
+    MonacoEditor _outputEditor { get; set; }
+    MonacoEditor _logOutput { get; set; }
+    SqlServerParser _parser = new();
+    string _logs { get; set; }
+
+    public App()
+    {
+        _m = new ActivityMonitor();
+        _m.Output.RegisterClient(new ActivityMonitorTextWriterClient(w =>
+        {
+            _logs += w;
+            _logOutput.SetValue(_logs);
+        }));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        bool isDarkMode = await JS.InvokeAsync<bool>("isDarkMode");
+        await MonacoEditor.SetTheme( isDarkMode ? "vs-dark" : "vs" );
+
+    }
+
+    async Task OnInit(MonacoEditorBase editor)
+    {
+        _parsedSqlCache = _parser.Parse(await _sqlEditor.GetValue());
+        _parsedTqlCache = _parser.ParseTransformer(await _tqlEditor.GetValue());
+        await UpdateOutput();
+    }
+
+    ISqlServerParserResult<ISqlServerTransformer> _parsedTqlCache;
+    ISqlServerParserResult<ISqlServerParsedText> _parsedSqlCache;
+    public async Task SqlChange(ModelContentChangedEvent test)
+    {
+        _parsedSqlCache = _parser.Parse(await _sqlEditor.GetValue());
+        await UpdateOutput();
+    }
+
+    public async Task TqlChange(ModelContentChangedEvent test)
+    {
+        _parsedTqlCache = _parser.ParseTransformer(await _tqlEditor.GetValue());
+        await UpdateOutput();
+    }
+
+
+    public async Task UpdateOutput()
+    {
+        _logs = "";
+        string output;
+        if (_parsedSqlCache.IsError || _parsedTqlCache.IsError)
+        {
+            output = "Error while parsing. Check the logs.";
+        }
+        else
+        {
+            if (_parsedSqlCache.Result == null || _parsedTqlCache.Result == null)
+            {
+                output = "Well, you just hit upon a bug.";
+            }
+            else
+            {
+                ISqlServerParsedText result = _parsedTqlCache.Result.SafeTransform(_m, _parsedSqlCache.Result);
+                if (result == null)
+                {
+                    output = "Error while transforming. Check the logs.";
+                }
+                else
+                {
+                    output = result.ToFullString();
+                }
+            }
+        }
+        await _outputEditor.SetValue(output);
+    }
+
+    StandaloneEditorConstructionOptions SqlEditorConstructionOptions(MonacoEditor editor)
+        => new StandaloneEditorConstructionOptions()
+        {
+            Language = "sql",
+            Value = @"-- SetupConfig: {}
+alter Procedure CK.sAclCreate
+(
+@ActorId int,
+@AclIdResult int output
+)
+as begin
+--[beginsp]
+--<PreCreate revert />
+insert into CK.tAcl default values;
+set @AclIdResult = scope_identity();
+--<PostCreate />
+--[endsp]
+end"
+        };
+    StandaloneEditorConstructionOptions TqlEditorConstructionOptions(MonacoEditor editor)
+        => new StandaloneEditorConstructionOptions()
+        {
+            Language = "sql",
+            Value = @"-- SetupConfig: {}
+create transformer on CK.sAclCreate
+as
+begin
+add parameter @AclTypeId int = 0;
+in single part {insert into CK.tAcl}
+begin
+add column AclTypeId = @AclTypeId;
+end
+end"
+        };
+    StandaloneEditorConstructionOptions OutputEditorConstructionOptions(MonacoEditor editor)
+        => new StandaloneEditorConstructionOptions()
+        {
+            Language = "sql",
+            Value = "Loading...",
+            ReadOnly = true
+        };
+            StandaloneEditorConstructionOptions LogOutputEditorConstructionOptions(MonacoEditor editor)
+        => new StandaloneEditorConstructionOptions()
+        {
+            Language = "log",
+            Value = "Loading...",
+            ReadOnly = true
+        };
+}
