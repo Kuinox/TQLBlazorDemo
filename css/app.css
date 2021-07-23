@@ -48,31 +48,28 @@ a, .btn-link {
   }
 
 
-body {
+html, body {
   height: 100%;
   margin: 0;
-}
-
-html {
-  height: 100%;
+  overflow: hidden;
 }
 
 #app {
   height: 100%;
 }
 
-.monaco-editor-container {
+
+.editors-grid .monaco-editor-container {
   height: 100%;
   width: 100%;
 }
-
 .editors-grid {
   height: 75%;
   width: 100%;
   display: flex
 }
 
-.top-bar {
-    height: 50px;
-    width: 100%;
+#log-output {
+  height: 25%;
+  width: 100%;
 }
