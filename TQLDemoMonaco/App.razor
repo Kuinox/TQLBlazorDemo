@@ -1,4 +1,7 @@
+@using System.Text
+@using System.IO
 @inject IJSRuntime JS
+@inject NavigationManager NavigationManager
 <div class="editors-grid">
     <MonacoEditor Id="sql-input" @ref="_sqlEditor" ConstructionOptions="SqlEditorConstructionOptions" OnDidChangeModelContent="SqlChange" OnDidInit="OnInit" />
     <MonacoEditor Id="tql-input" @ref="_tqlEditor" ConstructionOptions="TqlEditorConstructionOptions" OnDidChangeModelContent="TqlChange" OnDidInit="OnInit" />
@@ -24,17 +27,47 @@
             _logOutput.SetValue(_logs);
         }));
     }
-
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         bool isDarkMode = await JS.InvokeAsync<bool>("isDarkMode");
-        await MonacoEditor.SetTheme( isDarkMode ? "vs-dark" : "vs" );
+        await MonacoEditor.SetTheme(isDarkMode ? "vs-dark" : "vs");
 
     }
 
     async Task OnInit(MonacoEditorBase editor)
     {
+        Console.WriteLine(NavigationManager.Uri);
+        string uriString = NavigationManager.Uri;
+        Uri uri = new Uri(uriString);
+        if (!string.IsNullOrWhiteSpace(uri.Fragment))
+        {
+            string strBuffer = new string(uri.Fragment.Skip(1).ToArray());
+            strBuffer = Uri.UnescapeDataString(strBuffer);
+
+            byte[] buffer = new byte[strBuffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = _charsLookup[strBuffer[i]];
+            }
+            if (buffer.Length == 0) return;
+            using (MemoryStream inBuffer = new MemoryStream(buffer))
+            using (DeflateStream gzipStream = new DeflateStream(inBuffer, CompressionMode.Decompress))
+            using (StreamReader outReader = new StreamReader(gzipStream, Encoding.UTF8))
+            {
+                byte[] num = new byte[4];
+                gzipStream.Read(num);
+                int amount = BitConverter.ToInt32(num);
+                char[] sql = new char[amount];
+                outReader.ReadBlock(sql, 0, amount);
+                string sqlString = new string(sql);
+                string tql = outReader.ReadToEnd();
+                await _sqlEditor.SetValue(sqlString);
+                await _tqlEditor.SetValue(tql);
+            }
+        }
+
+
         _parsedSqlCache = _parser.Parse(await _sqlEditor.GetValue());
         _parsedTqlCache = _parser.ParseTransformer(await _tqlEditor.GetValue());
         await UpdateOutput();
@@ -59,6 +92,8 @@
     {
         _logs = "";
         string output;
+        if (_parsedSqlCache == null) return;
+        if (_parsedTqlCache == null) return;
         if (_parsedSqlCache.IsError || _parsedTqlCache.IsError)
         {
             output = "Error while parsing. Check the logs.";
@@ -83,13 +118,40 @@
             }
         }
         await _outputEditor.SetValue(output);
+
+        using (MemoryStream inBuffer = new MemoryStream())
+        using (DeflateStream outStream = new DeflateStream(inBuffer, CompressionLevel.Optimal, true))
+        using (StreamWriter writer = new StreamWriter(outStream, Encoding.UTF8, leaveOpen: true))
+        {
+            string sql = await _sqlEditor.GetValue();
+            outStream.Write(BitConverter.GetBytes(sql.Length));
+            writer.Write(sql);
+            writer.Write(await _tqlEditor.GetValue());
+            writer.Flush();
+            inBuffer.Position = 0;
+            byte[] buffer = inBuffer.ToArray();
+            char[] encoded = new char[buffer.Length];
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                encoded[i] = _printableChars[buffer[i]];
+            }
+            string hash = new string(encoded);
+            await JS.InvokeVoidAsync("setHash", new object[] { hash });
+        }
     }
 
+    static string _printableChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ぁあぃいぅ" +
+    "うぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよら" +
+    "りるれろゎわゐゑをんゔゕゖァアィイゥウェエォオカガキギクグケゲコゴサザシジスズセゼソゾタダチヂッツヅテデトドナニヌネノハバパヒビピフブプヘ" +
+    "ベペホボポマミムメモャヤュユョヨラリルレロヮワヰヱヲンヴヵヶヷヸヹヺ⊕⊖⊗⊘⊙⊚⊛⊜⊝⊞⊟⊠⊡⊢⊣⊤⊥é";
+
+    Dictionary<char, byte> _charsLookup = _printableChars.Select((s, i) => (s, i)).ToDictionary(s => s.s, s => (byte)s.i);
+
     StandaloneEditorConstructionOptions SqlEditorConstructionOptions(MonacoEditor editor)
-        => new StandaloneEditorConstructionOptions()
-        {
-            Language = "sql",
-            Value = @"-- SetupConfig: {}
+    => new StandaloneEditorConstructionOptions()
+    {
+        Language = "sql",
+        Value = @"-- SetupConfig: {}
 alter Procedure CK.sAclCreate
 (
 @ActorId int,
@@ -103,12 +165,12 @@ set @AclIdResult = scope_identity();
 --<PostCreate />
 --[endsp]
 end"
-        };
+    };
     StandaloneEditorConstructionOptions TqlEditorConstructionOptions(MonacoEditor editor)
-        => new StandaloneEditorConstructionOptions()
-        {
-            Language = "sql",
-            Value = @"-- SetupConfig: {}
+    => new StandaloneEditorConstructionOptions()
+    {
+        Language = "sql",
+        Value = @"-- SetupConfig: {}
 create transformer on CK.sAclCreate
 as
 begin
@@ -118,19 +180,19 @@ begin
 add column AclTypeId = @AclTypeId;
 end
 end"
-        };
+    };
     StandaloneEditorConstructionOptions OutputEditorConstructionOptions(MonacoEditor editor)
-        => new StandaloneEditorConstructionOptions()
-        {
-            Language = "sql",
-            Value = "Loading...",
-            ReadOnly = true
-        };
-            StandaloneEditorConstructionOptions LogOutputEditorConstructionOptions(MonacoEditor editor)
-        => new StandaloneEditorConstructionOptions()
-        {
-            Language = "log",
-            Value = "Loading...",
-            ReadOnly = true
-        };
+    => new StandaloneEditorConstructionOptions()
+    {
+        Language = "sql",
+        Value = "Loading...",
+        ReadOnly = true
+    };
+    StandaloneEditorConstructionOptions LogOutputEditorConstructionOptions(MonacoEditor editor)
+    => new StandaloneEditorConstructionOptions()
+    {
+        Language = "log",
+        Value = "Loading...",
+        ReadOnly = true
+    };
 }
